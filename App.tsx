@@ -1,45 +1,38 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
+ * Dora -- messaging with no SIM, no internet, no airtime credit.
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import 'react-native-gesture-handler';
+import React, {useEffect, useState} from 'react';
+import {StatusBar, useColorScheme, ActivityIndicator, View} from 'react-native';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import RootNavigator from './src/navigation/RootNavigator';
+import {colors} from './src/theme';
 
-function App() {
+export default function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Contacts' | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem('dora:identity').then(raw => {
+      setInitialRoute(raw ? 'Contacts' : 'Onboarding');
+    });
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg}}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <RootNavigator initialRoute={initialRoute} />
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;

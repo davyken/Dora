@@ -1,0 +1,81 @@
+name: Build APK
+
+# Builds an unsigned debug APK on every push to main and on version tags,
+# and lets you trigger it manually. The APK is always named after the
+# version in package.json (dora-v0.0.1.apk, dora-v0.0.2.apk, ...), so
+# bumping "version" there is what controls the file name of the next build.
+#
+# This produces a DEBUG build -- installable on a device for testing, but
+# not what you'd publish to the Play Store. To add a signed release build
+# later: generate a keystore, add it (base64-encoded) plus its passwords as
+# repo secrets, wire a signingConfig into android/app/build.gradle, and
+# swap `assembleDebug` below for `assembleRelease`.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK with version
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/dora-v${{ steps.version.outputs.version }}.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dora-v${{ steps.version.outputs.version }}
+          path: dist/dora-v${{ steps.version.outputs.version }}.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/dora-v${{ steps.version.outputs.version }}.apk
+          generate_release_notes: true
