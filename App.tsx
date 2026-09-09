@@ -10,6 +10,11 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootNavigator from './src/navigation/RootNavigator';
 import {colors} from './src/theme';
+import {
+  ensureNotificationChannels,
+  isBackgroundListeningEnabled,
+  startBackgroundListening,
+} from './src/services/notifications';
 
 export default function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -18,6 +23,14 @@ export default function App() {
   useEffect(() => {
     AsyncStorage.getItem('dora:identity').then(raw => {
       setInitialRoute(raw ? 'Contacts' : 'Onboarding');
+    });
+
+    ensureNotificationChannels();
+    // The foreground service notification doesn't survive an app process
+    // restart on its own -- if the user had background listening on, put
+    // it back up now.
+    isBackgroundListeningEnabled().then(enabled => {
+      if (enabled) startBackgroundListening();
     });
   }, []);
 

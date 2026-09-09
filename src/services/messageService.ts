@@ -1,9 +1,10 @@
 import uuid from 'react-native-uuid';
 import type {Contact, DoraMessage} from '../types';
 import {getOrCreateIdentity} from './identity';
-import {encryptForRecipient} from './crypto';
-import {saveMessage, updateMessageStatus} from './storage';
+import {encryptForRecipient, decryptFromSender, type EncryptedEnvelope} from './crypto';
+import {saveMessage, updateMessageStatus, getContact} from './storage';
 import {sendToNearestGateway} from './ble';
+import {displayMessageNotification} from './notifications';
 
 /**
  * Ties together identity, encryption, local storage, and the (currently
@@ -83,5 +84,43 @@ export async function sendVoiceMessage(
   // chunk the audio file the same way text envelopes are handled above --
   // voice notes need fragmentation given LoRa's tiny packet size.
   void attemptHandoff(message, '');
+  return message;
+}
+
+/**
+ * The receiving half of the lifecycle: decrypt a payload that arrived from
+ * a gateway, save it as an incoming message, and fire a local notification.
+ *
+ * Nothing calls this yet -- there is no gateway hand-off delivering real
+ * payloads (see src/services/ble.ts). This function exists so that the
+ * moment that hand-off is built, wiring "a message arrived" to "the user
+ * gets notified even with the app closed" is a single call to this
+ * function, not a new design.
+ */
+export async function receiveMessage(
+  senderPublicKey: string,
+  envelope: EncryptedEnvelope,
+): Promise<DoraMessage | null> {
+  const me = await getOrCreateIdentity();
+  const plaintext = decryptFromSender(envelope, me.secretKey);
+  if (plaintext === null) return null; // tampered, or not actually for us
+
+  const contact = await getContact(senderPublicKey);
+  const message: DoraMessage = {
+    id: uuid.v4() as string,
+    contactId: senderPublicKey,
+    direction: 'incoming',
+    kind: 'text',
+    text: plaintext,
+    createdAt: Date.now(),
+    status: 'delivered',
+  };
+
+  await saveMessage(message);
+  await displayMessageNotification({
+    senderName: contact?.displayName ?? 'Unknown contact',
+    preview: plaintext,
+  });
+
   return message;
 }

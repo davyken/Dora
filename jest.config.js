@@ -19,6 +19,7 @@ module.exports = {
         'react-native-uuid',
         'react-native-get-random-values',
         '@react-native-async-storage',
+        '@notifee/react-native',
         '@react-navigation',
       ].join('|') +
       ')/)',

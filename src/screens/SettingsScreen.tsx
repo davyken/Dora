@@ -1,20 +1,36 @@
 import React, {useEffect, useState} from 'react';
-import {View, Text, TextInput, Pressable, StyleSheet, ScrollView} from 'react-native';
+import {View, Text, TextInput, Pressable, Switch, StyleSheet, ScrollView, Platform} from 'react-native';
 import {getOrCreateIdentity, updateDisplayName} from '../services/identity';
+import {
+  isBackgroundListeningEnabled,
+  setBackgroundListeningEnabled,
+  requestNotificationPermission,
+} from '../services/notifications';
 import {colors, spacing, radii, typography} from '../theme';
 
 export default function SettingsScreen() {
   const [name, setName] = useState('');
   const [savedNotice, setSavedNotice] = useState(false);
+  const [backgroundListening, setBackgroundListening] = useState(false);
 
   useEffect(() => {
     getOrCreateIdentity().then(identity => setName(identity.displayName));
+    isBackgroundListeningEnabled().then(setBackgroundListening);
   }, []);
 
   const onSave = async () => {
     await updateDisplayName(name.trim());
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 1500);
+  };
+
+  const onToggleBackgroundListening = async (value: boolean) => {
+    if (value) {
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+    }
+    setBackgroundListening(value);
+    await setBackgroundListeningEnabled(value);
   };
 
   return (
@@ -24,6 +40,25 @@ export default function SettingsScreen() {
       <Pressable onPress={onSave} style={({pressed}) => [styles.button, pressed && {opacity: 0.85}]}>
         <Text style={styles.buttonText}>{savedNotice ? 'Saved' : 'Save'}</Text>
       </Pressable>
+
+      <View style={styles.divider} />
+
+      <View style={styles.toggleRow}>
+        <View style={{flex: 1}}>
+          <Text style={styles.label}>Listen in the background</Text>
+          <Text style={styles.toggleSubtitle}>
+            {Platform.OS === 'android'
+              ? 'Keeps Dora watching for messages when the app is closed. Shows a persistent notification — required by Android for this to work.'
+              : "Not available on iOS yet — Apple's background Bluetooth restrictions make this unreliable there. See the README."}
+          </Text>
+        </View>
+        <Switch
+          value={backgroundListening}
+          onValueChange={onToggleBackgroundListening}
+          disabled={Platform.OS !== 'android'}
+          trackColor={{true: colors.accent}}
+        />
+      </View>
 
       <View style={styles.divider} />
 
@@ -60,6 +95,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {color: '#fff', fontWeight: '700'},
   divider: {height: 1, backgroundColor: colors.line, marginVertical: spacing.xl},
+  toggleRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
+  toggleSubtitle: {...typography.subtitle, fontSize: 13, marginTop: 2, lineHeight: 18},
   sectionTitle: {...typography.body, fontWeight: '700', marginBottom: spacing.sm},
   about: {...typography.subtitle, lineHeight: 20},
 });

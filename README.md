@@ -39,6 +39,9 @@ than it is.
 | LoRa mesh relay (gateway → gateway) | 🚧 Not part of this repo — firmware for the ESP32/LoRa gateway boards is a separate project |
 | Message delivery status beyond "queued" | 🚧 Depends on the gateway protocol above |
 | Optional online contact directory / hybrid internet bridge | 🚧 Not started — see the PDF's "Optional Hybrid Bridge" section |
+| Local notification when a message arrives | ✅ Real (`src/services/notifications.ts`), but nothing calls it yet — see below |
+| Background listening (app closed, Android) | ✅ Real foreground service + persistent notification; toggle in Settings |
+| Background listening (iOS) | 🚧 Not implemented — Apple's background-BLE restrictions make an always-on equivalent unreliable |
 
 In short: **everything on the phone that doesn't require a gateway to
 exist already works.** You can install this on two phones today, add each
@@ -117,6 +120,35 @@ zero-backend (`src/services/contactLink.ts`, `AddContactScreen.tsx`):
 Once added, a contact is permanent — messaging them later doesn't require
 being nearby again, only that a gateway path exists between you (once
 gateways exist).
+
+---
+
+## Notifications: local, not push — and why
+
+There's no cloud server anywhere in Dora's design for a message to pass
+through, so there's nothing for Firebase Cloud Messaging or Apple Push
+Notification service to relay — the usual way apps get notified in the
+background doesn't apply here. Instead, `src/services/notifications.ts`
+implements **local** notifications: the phone notices, on-device, that a
+message arrived over Bluetooth, and tells the OS to show a notification
+itself.
+
+That "noticing" has to happen somewhere even when the app is closed, which
+is what the optional **background listening** toggle in Settings does on
+Android: it starts a foreground service (the same mechanism music players
+use) with a persistent, low-priority "Dora is listening" notification —
+required by Android policy for any foreground service, not something this
+app can hide. As of this version, the service has nothing real to listen
+*for* yet (see the gateway hand-off stub above), but `messageService.receiveMessage()`
+is already wired to decrypt an incoming payload, save it, and fire
+`displayMessageNotification()` — so connecting the two is a one-line change
+once gateway hardware exists, not a redesign.
+
+iOS has no equivalent of an indefinite foreground service, and Apple
+throttles background Bluetooth scanning hard enough that a reliable
+always-on version of this isn't realistic there — the Settings toggle is
+disabled on iOS for that reason rather than shipping something that quietly
+doesn't work.
 
 ---
 

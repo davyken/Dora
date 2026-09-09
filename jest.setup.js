@@ -38,6 +38,20 @@ jest.mock('react-native-camera-kit', () => ({
   Camera: 'Camera',
 }));
 
+jest.mock('@notifee/react-native', () => ({
+  __esModule: true,
+  default: {
+    createChannel: jest.fn().mockResolvedValue('channel-id'),
+    displayNotification: jest.fn().mockResolvedValue('notification-id'),
+    requestPermission: jest.fn().mockResolvedValue({authorizationStatus: 1}),
+    registerForegroundService: jest.fn(),
+    stopForegroundService: jest.fn().mockResolvedValue(undefined),
+  },
+  AndroidImportance: {HIGH: 4, LOW: 2, DEFAULT: 3},
+  AndroidVisibility: {PRIVATE: 0, PUBLIC: 1, SECRET: -1},
+  AndroidForegroundServiceType: {FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE: 16},
+}));
+
 jest.mock('react-native-fs', () => ({
   CachesDirectoryPath: '/tmp',
   exists: jest.fn().mockResolvedValue(true),
