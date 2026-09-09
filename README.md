@@ -230,3 +230,10 @@ Rough order, matching the priority of "what unblocks the most":
 5. **Optional hybrid internet bridge + directory service** (thin NestJS
    backend) — lets two people who've never met find each other when at
    least one has occasional internet access.
+
+# Push a new tag/release to github.
+   git add package.json package-lock.json
+   git commit -m "Bump version to 0.0.2"
+   git push origin main
+   git tag v0.0.2
+   git push origin v0.0.2

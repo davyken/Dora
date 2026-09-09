@@ -10,6 +10,12 @@ name: Build APK
 # later: generate a keystore, add it (base64-encoded) plus its passwords as
 # repo secrets, wire a signingConfig into android/app/build.gradle, and
 # swap `assembleDebug` below for `assembleRelease`.
+#
+# The publish-ota job below additionally pushes a JS-only OTA bundle to the
+# ota-latest branch on every push to main. Installed apps poll it and apply
+# JS-only updates silently in the background (see src/services/otaUpdate.ts,
+# MainApplication.kt) -- no new APK needed for changes that don't touch
+# native code. Native-affecting changes still need a new tagged release.
 
 on:
   push:
@@ -81,3 +87,51 @@ jobs:
         with:
           files: dist/dora-v${{ steps.version.outputs.version }}.apk
           generate_release_notes: true
+
+  publish-ota:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Bundle JS for OTA
+        run: |
+          mkdir -p ota-dist
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output ota-dist/index.android.bundle \
+            --reset-cache
+
+      - name: Write OTA manifest
+        run: |
+          cat > ota-dist/manifest.json <<EOF
+          {
+            "commit": "$(git rev-parse --short HEAD)",
+            "bundleUrl": "https://raw.githubusercontent.com/${{ github.repository }}/ota-latest/index.android.bundle"
+          }
+          EOF
+
+      - name: Publish to ota-latest branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ota-latest
+          git reset --hard
+          cp ota-dist/index.android.bundle ota-dist/manifest.json .
+          git add index.android.bundle manifest.json
+          git commit -m "OTA update ${{ github.sha }}"
+          git push origin HEAD:ota-latest --force

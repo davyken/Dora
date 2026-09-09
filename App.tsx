@@ -15,6 +15,7 @@ import {
   isBackgroundListeningEnabled,
   startBackgroundListening,
 } from './src/services/notifications';
+import {checkForUpdate, confirmBoot} from './src/services/otaUpdate';
 
 export default function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -32,6 +33,11 @@ export default function App() {
     isBackgroundListeningEnabled().then(enabled => {
       if (enabled) startBackgroundListening();
     });
+
+    // This launch rendered fine, so any OTA bundle it booted with is good.
+    confirmBoot();
+    // Pull down the next update in the background, if any; applies on next launch.
+    checkForUpdate();
   }, []);
 
   if (!initialRoute) {
