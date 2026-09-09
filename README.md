@@ -4,7 +4,7 @@ Messaging that doesn't need a SIM card, mobile internet, or airtime credit.
 
 Dora relays text, voice notes, and stickers between phones over Bluetooth to
 nearby gateway nodes, which then hop the message across town over
-long-range LoRa radio to a gateway near the recipient — no cellular tower,
+long-range LoRa radio to a gateway near the recipient  no cellular tower,
 no ISP, and no phone bill involved at any point. The full design rationale,
 diagrams, and hardware bill of materials live in
 [`docs/lora-mesh-architecture.pdf`](docs/lora-mesh-architecture.pdf) (and
